@@ -1,0 +1,605 @@
+--[[
+    Delath's Hub - Roblox Script Hub for Delta Executor
+    Versão: 1.0
+    Compatível: Mobile/PC
+    Recursos: Aimbot, ESP, Fly, Speed Hack, Noclip, etc.
+]]
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
+
+-- Configurações padrão
+local Settings = {
+    HubName = "Delath's Hub",
+    MainColor = Color3.fromRGB(255, 255, 255),
+    BackgroundColor = Color3.fromRGB(0, 0, 0),
+    
+    -- Aimbot
+    Aimbot = {
+        Enabled = false,
+        TeamCheck = true,
+        WallCheck = true,
+        Smoothness = 0.5,
+        FOV = 100,
+        FOVVisible = true,
+        BodyPart = "Head", -- Head, Torso, HumanoidRootPart
+        Keybind = "LeftAlt",
+        CircleColor = Color3.fromRGB(255, 255, 255),
+        CircleTransparency = 0.5
+    },
+    
+    -- ESP
+    ESP = {
+        Enabled = false,
+        TeamCheck = false,
+        Boxes = true,
+        Names = true,
+        Tracers = false,
+        Distance = true,
+        Health = true,
+        BoxColor = Color3.fromRGB(255, 255, 255),
+        TeamColor = false
+    },
+    
+    -- Misc
+    Fly = {
+        Enabled = false,
+        Speed = 50
+    },
+    
+    Speed = {
+        Enabled = false,
+        Value = 30
+    },
+    
+    Noclip = {
+        Enabled = false
+    },
+    
+    Tool = false
+}
+
+-- Variáveis globais
+local Toggled = false
+local Dragging = false
+local DragStartPos = Vector2.new(0, 0)
+local MenuPos = Vector2.new(100, 100)
+local Minimized = false
+local OriginalSize = UDim2.new(0, 400, 0, 500)
+local OriginalPosition = UDim2.new(0, 100, 0, 100)
+local Connections = {}
+local ESPFolder = Instance.new("Folder")
+ESPFolder.Name = "ESPFolder"
+ESPFolder.Parent = game:GetService("CoreGui")
+
+-- Criação da interface
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "DelathsHub"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+if syn and syn.protect_gui then
+    syn.protect_gui(ScreenGui)
+end
+ScreenGui.Parent = game:GetService("CoreGui")
+
+-- Frame principal
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = OriginalSize
+MainFrame.Position = OriginalPosition
+MainFrame.BackgroundColor3 = Settings.BackgroundColor
+MainFrame.BackgroundTransparency = 0.2
+MainFrame.BorderSizePixel = 2
+MainFrame.BorderColor3 = Settings.MainColor
+MainFrame.Active = true
+MainFrame.Draggable = false
+MainFrame.Parent = ScreenGui
+
+-- Título arrastável
+local TitleBar = Instance.new("Frame")
+TitleBar.Name = "TitleBar"
+TitleBar.Size = UDim2.new(1, 0, 0, 30)
+TitleBar.BackgroundColor3 = Color3.new(0, 0, 0)
+TitleBar.BackgroundTransparency = 0.5
+TitleBar.Parent = MainFrame
+
+local Title = Instance.new("TextLabel")
+Title.Name = "Title"
+Title.Size = UDim2.new(0.7, 0, 1, 0)
+Title.Position = UDim2.new(0.15, 0, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = Settings.HubName
+Title.TextColor3 = Settings.MainColor
+Title.TextSize = 18
+Title.Font = Enum.Font.GothamBold
+Title.Parent = TitleBar
+
+-- Botão minimizar
+local MinimizeButton = Instance.new("TextButton")
+MinimizeButton.Name = "MinimizeButton"
+MinimizeButton.Size = UDim2.new(0, 30, 0, 30)
+MinimizeButton.Position = UDim2.new(1, -60, 0, 0)
+MinimizeButton.BackgroundTransparency = 1
+MinimizeButton.Text = "_"
+MinimizeButton.TextColor3 = Settings.MainColor
+MinimizeButton.TextSize = 20
+MinimizeButton.Font = Enum.Font.GothamBold
+MinimizeButton.Parent = TitleBar
+
+-- Botão fechar
+local CloseButton = Instance.new("TextButton")
+CloseButton.Name = "CloseButton"
+CloseButton.Size = UDim2.new(0, 30, 0, 30)
+CloseButton.Position = UDim2.new(1, -30, 0, 0)
+CloseButton.BackgroundTransparency = 1
+CloseButton.Text = "X"
+CloseButton.TextColor3 = Settings.MainColor
+CloseButton.TextSize = 18
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.Parent = TitleBar
+
+-- Container das abas
+local TabContainer = Instance.new("Frame")
+TabContainer.Name = "TabContainer"
+TabContainer.Size = UDim2.new(1, 0, 1, -30)
+TabContainer.Position = UDim2.new(0, 0, 0, 30)
+TabContainer.BackgroundTransparency = 1
+TabContainer.Parent = MainFrame
+
+-- Criação das abas
+local function CreateTab(name, displayName)
+    local TabButton = Instance.new("TextButton")
+    TabButton.Name = name .. "Tab"
+    TabButton.Size = UDim2.new(0.2, 0, 0, 30)
+    TabButton.BackgroundColor3 = Settings.BackgroundColor
+    TabButton.BackgroundTransparency = 0.3
+    TabButton.BorderSizePixel = 1
+    TabButton.BorderColor3 = Settings.MainColor
+    TabButton.Text = displayName
+    TabButton.TextColor3 = Settings.MainColor
+    TabButton.TextSize = 14
+    TabButton.Font = Enum.Font.Gotham
+    TabButton.Parent = TitleBar
+    
+    local TabFrame = Instance.new("ScrollingFrame")
+    TabFrame.Name = name .. "Frame"
+    TabFrame.Size = UDim2.new(1, 0, 1, 0)
+    TabFrame.Position = UDim2.new(0, 0, 0, 0)
+    TabFrame.BackgroundTransparency = 1
+    TabFrame.Visible = false
+    TabFrame.ScrollBarThickness = 4
+    TabFrame.ScrollBarImageColor3 = Settings.MainColor
+    TabFrame.Parent = TabContainer
+    
+    return TabButton, TabFrame
+end
+
+-- Abas
+local AimbotTab, AimbotFrame = CreateTab("Aimbot", "Aimbot")
+local ESPTab, ESPFrame = CreateTab("ESP", "ESP")
+local MiscTab, MiscFrame = CreateTab("Misc", "Misc")
+local SettingsTab, SettingsFrame = CreateTab("Settings", "Settings")
+
+-- Posicionar abas
+AimbotTab.Position = UDim2.new(0, 0, 0, 0)
+ESPTab.Position = UDim2.new(0.2, 0, 0, 0)
+MiscTab.Position = UDim2.new(0.4, 0, 0, 0)
+SettingsTab.Position = UDim2.new(0.6, 0, 0, 0)
+
+-- Ícone minimizado
+local MinimizedIcon = Instance.new("TextButton")
+MinimizedIcon.Name = "MinimizedIcon"
+MinimizedIcon.Size = UDim2.new(0, 50, 0, 50)
+MinimizedIcon.Position = UDim2.new(0, 20, 0, 20)
+MinimizedIcon.BackgroundColor3 = Settings.BackgroundColor
+MinimizedIcon.BackgroundTransparency = 0.3
+MinimizedIcon.BorderSizePixel = 2
+MinimizedIcon.BorderColor3 = Settings.MainColor
+MinimizedIcon.Text = "≡"
+MinimizedIcon.TextColor3 = Settings.MainColor
+MinimizedIcon.TextSize = 24
+MinimizedIcon.Font = Enum.Font.GothamBold
+MinimizedIcon.Visible = false
+MinimizedIcon.Parent = ScreenGui
+
+-- Funções de utilidade
+local function CreateLabel(parent, text, position)
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.9, 0, 0, 20)
+    label.Position = position
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Settings.MainColor
+    label.TextSize = 14
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Font = Enum.Font.Gotham
+    label.Parent = parent
+    return label
+end
+
+local function CreateToggle(parent, text, position, callback)
+    local toggleFrame = Instance.new("Frame")
+    toggleFrame.Size = UDim2.new(0.9, 0, 0, 25)
+    toggleFrame.Position = position
+    toggleFrame.BackgroundTransparency = 1
+    toggleFrame.Parent = parent
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.7, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Settings.MainColor
+    label.TextSize = 14
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Font = Enum.Font.Gotham
+    label.Parent = toggleFrame
+    
+    local toggleButton = Instance.new("TextButton")
+    toggleButton.Size = UDim2.new(0, 40, 0, 20)
+    toggleButton.Position = UDim2.new(1, -40, 0.5, -10)
+    toggleButton.BackgroundColor3 = Settings.BackgroundColor
+    toggleButton.BorderSizePixel = 1
+    toggleButton.BorderColor3 = Settings.MainColor
+    toggleButton.Text = ""
+    toggleButton.Parent = toggleFrame
+    
+    local toggleIndicator = Instance.new("Frame")
+    toggleIndicator.Size = UDim2.new(0, 18, 0, 18)
+    toggleIndicator.Position = UDim2.new(0, 1, 0, 1)
+    toggleIndicator.BackgroundColor3 = Color3.new(1, 0, 0)
+    toggleIndicator.BorderSizePixel = 0
+    toggleIndicator.Parent = toggleButton
+    
+    local function updateToggle(value)
+        if value then
+            toggleIndicator.BackgroundColor3 = Color3.new(0, 1, 0)
+            toggleIndicator.Position = UDim2.new(1, -19, 0, 1)
+        else
+            toggleIndicator.BackgroundColor3 = Color3.new(1, 0, 0)
+            toggleIndicator.Position = UDim2.new(0, 1, 0, 1)
+        end
+    end
+    
+    local state = false
+    toggleButton.MouseButton1Click:Connect(function()
+        state = not state
+        updateToggle(state)
+        callback(state)
+    end)
+    
+    updateToggle(false)
+    return toggleFrame
+end
+
+local function CreateSlider(parent, text, position, min, max, default, callback)
+    local sliderFrame = Instance.new("Frame")
+    sliderFrame.Size = UDim2.new(0.9, 0, 0, 40)
+    sliderFrame.Position = position
+    sliderFrame.BackgroundTransparency = 1
+    sliderFrame.Parent = parent
+    
+    local label = CreateLabel(sliderFrame, text .. ": " .. default, UDim2.new(0, 0, 0, 0))
+    
+    local sliderTrack = Instance.new("Frame")
+    sliderTrack.Size = UDim2.new(1, 0, 0, 5)
+    sliderTrack.Position = UDim2.new(0, 0, 0, 25)
+    sliderTrack.BackgroundColor3 = Settings.BackgroundColor
+    sliderTrack.BorderSizePixel = 1
+    sliderTrack.BorderColor3 = Settings.MainColor
+    sliderTrack.Parent = sliderFrame
+    
+    local sliderThumb = Instance.new("Frame")
+    sliderThumb.Size = UDim2.new(0, 10, 0, 15)
+    sliderThumb.Position = UDim2.new((default - min) / (max - min), -5, 0, -5)
+    sliderThumb.BackgroundColor3 = Settings.MainColor
+    sliderThumb.BorderSizePixel = 1
+    sliderThumb.BorderColor3 = Settings.MainColor
+    sliderThumb.Parent = sliderTrack
+    
+    local dragging = false
+    local function updateValue(x)
+        local relative = math.clamp((x - sliderTrack.AbsolutePosition.X) / sliderTrack.AbsoluteSize.X, 0, 1)
+        local value = min + (max - min) * relative
+        value = math.floor(value * 100) / 100
+        sliderThumb.Position = UDim2.new(relative, -5, 0, -5)
+        label.Text = text .. ": " .. value
+        callback(value)
+    end
+    
+    sliderThumb.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+        end
+    end)
+    
+    sliderThumb.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            updateValue(input.Position.X)
+        end
+    end)
+    
+    return sliderFrame
+end
+
+local function CreateDropdown(parent, text, position, options, default, callback)
+    local dropdownFrame = Instance.new("Frame")
+    dropdownFrame.Size = UDim2.new(0.9, 0, 0, 40)
+    dropdownFrame.Position = position
+    dropdownFrame.BackgroundTransparency = 1
+    dropdownFrame.Parent = parent
+    
+    local label = CreateLabel(dropdownFrame, text, UDim2.new(0, 0, 0, 0))
+    
+    local dropdownButton = Instance.new("TextButton")
+    dropdownButton.Size = UDim2.new(0.5, 0, 0, 25)
+    dropdownButton.Position = UDim2.new(0.5, 0, 0, 15)
+    dropdownButton.BackgroundColor3 = Settings.BackgroundColor
+    dropdownButton.BorderSizePixel = 1
+    dropdownButton.BorderColor3 = Settings.MainColor
+    dropdownButton.Text = default
+    dropdownButton.TextColor3 = Settings.MainColor
+    dropdownButton.TextSize = 14
+    dropdownButton.Font = Enum.Font.Gotham
+    dropdownButton.Parent = dropdownFrame
+    
+    local dropdownOpen = false
+    local dropdownOptions = Instance.new("Frame")
+    dropdownOptions.Size = UDim2.new(0.5, 0, 0, #options * 25)
+    dropdownOptions.Position = UDim2.new(0.5, 0, 0, 40)
+    dropdownOptions.BackgroundColor3 = Settings.BackgroundColor
+    dropdownOptions.BorderSizePixel = 1
+    dropdownOptions.BorderColor3 = Settings.MainColor
+    dropdownOptions.Visible = false
+    dropdownOptions.Parent = dropdownFrame
+    
+    for i, option in ipairs(options) do
+        local optionButton = Instance.new("TextButton")
+        optionButton.Size = UDim2.new(1, 0, 0, 25)
+        optionButton.Position = UDim2.new(0, 0, 0, (i-1)*25)
+        optionButton.BackgroundColor3 = Settings.BackgroundColor
+        optionButton.BorderSizePixel = 0
+        optionButton.Text = option
+        optionButton.TextColor3 = Settings.MainColor
+        optionButton.TextSize = 14
+        optionButton.Font = Enum.Font.Gotham
+        optionButton.Parent = dropdownOptions
+        
+        optionButton.MouseButton1Click:Connect(function()
+            dropdownButton.Text = option
+            dropdownOptions.Visible = false
+            dropdownOpen = false
+            callback(option)
+        end)
+    end
+    
+    dropdownButton.MouseButton1Click:Connect(function()
+        dropdownOpen = not dropdownOpen
+        dropdownOptions.Visible = dropdownOpen
+    end)
+    
+    return dropdownFrame
+end
+
+-- Populando aba Aimbot
+local yOffset = 10
+CreateLabel(AimbotFrame, "Configurações do Aimbot", UDim2.new(0, 10, 0, yOffset))
+yOffset = yOffset + 30
+
+CreateToggle(AimbotFrame, "Ativar Aimbot", UDim2.new(0, 10, 0, yOffset), function(state)
+    Settings.Aimbot.Enabled = state
+end)
+yOffset = yOffset + 30
+
+CreateToggle(AimbotFrame, "Team Check", UDim2.new(0, 10, 0, yOffset), function(state)
+    Settings.Aimbot.TeamCheck = state
+end)
+yOffset = yOffset + 30
+
+CreateToggle(AimbotFrame, "Wall Check", UDim2.new(0, 10, 0, yOffset), function(state)
+    Settings.Aimbot.WallCheck = state
+end)
+yOffset = yOffset + 30
+
+CreateSlider(AimbotFrame, "Suavidade", UDim2.new(0, 10, 0, yOffset), 0.1, 1, Settings.Aimbot.Smoothness, function(value)
+    Settings.Aimbot.Smoothness = value
+end)
+yOffset = yOffset + 50
+
+CreateSlider(AimbotFrame, "FOV", UDim2.new(0, 10, 0, yOffset), 10, 500, Settings.Aimbot.FOV, function(value)
+    Settings.Aimbot.FOV = value
+end)
+yOffset = yOffset + 50
+
+CreateToggle(AimbotFrame, "Mostrar FOV", UDim2.new(0, 10, 0, yOffset), function(state)
+    Settings.Aimbot.FOVVisible = state
+end)
+yOffset = yOffset + 30
+
+CreateDropdown(AimbotFrame, "Parte do Corpo", UDim2.new(0, 10, 0, yOffset), {"Head", "Torso", "HumanoidRootPart"}, Settings.Aimbot.BodyPart, function(option)
+    Settings.Aimbot.BodyPart = option
+end)
+yOffset = yOffset + 50
+
+-- Populando aba ESP
+yOffset = 10
+CreateLabel(ESPFrame, "Configurações do ESP", UDim2.new(0, 10, 0, yOffset))
+yOffset = yOffset + 30
+
+CreateToggle(ESPFrame, "Ativar ESP", UDim2.new(0, 10, 0, yOffset), function(state)
+    Settings.ESP.Enabled = state
+end)
+yOffset = yOffset + 30
+
+CreateToggle(ESPFrame, "Team Check", UDim2.new(0, 10, 0, yOffset), function(state)
+    Settings.ESP.TeamCheck = state
+end)
+yOffset = yOffset + 30
+
+CreateToggle(ESPFrame, "Caixas", UDim2.new(0, 10, 0, yOffset), function(state)
+    Settings.ESP.Boxes = state
+end)
+yOffset = yOffset + 30
+
+CreateToggle(ESPFrame, "Nomes", UDim2.new(0, 10, 0, yOffset), function(state)
+    Settings.ESP.Names = state
+end)
+yOffset = yOffset + 30
+
+CreateToggle(ESPFrame, "Tracers", UDim2.new(0, 10, 0, yOffset), function(state)
+    Settings.ESP.Tracers = state
+end)
+yOffset = yOffset + 30
+
+CreateToggle(ESPFrame, "Distância", UDim2.new(0, 10, 0, yOffset), function(state)
+    Settings.ESP.Distance = state
+end)
+yOffset = yOffset + 30
+
+CreateToggle(ESPFrame, "Vida", UDim2.new(0, 10, 0, yOffset), function(state)
+    Settings.ESP.Health = state
+end)
+yOffset = yOffset + 30
+
+CreateToggle(ESPFrame, "Cor por Time", UDim2.new(0, 10, 0, yOffset), function(state)
+    Settings.ESP.TeamColor = state
+end)
+yOffset = yOffset + 30
+
+-- Populando aba Misc
+yOffset = 10
+CreateLabel(MiscFrame, "Recursos Diversos", UDim2.new(0, 10, 0, yOffset))
+yOffset = yOffset + 30
+
+CreateToggle(MiscFrame, "Fly", UDim2.new(0, 10, 0, yOffset), function(state)
+    Settings.Fly.Enabled = state
+end)
+yOffset = yOffset + 30
+
+CreateSlider(MiscFrame, "Velocidade Fly", UDim2.new(0, 10, 0, yOffset), 10, 200, Settings.Fly.Speed, function(value)
+    Settings.Fly.Speed = value
+end)
+yOffset = yOffset + 50
+
+CreateToggle(MiscFrame, "Speed Hack", UDim2.new(0, 10, 0, yOffset), function(state)
+    Settings.Speed.Enabled = state
+end)
+yOffset = yOffset + 30
+
+CreateSlider(MiscFrame, "Velocidade", UDim2.new(0, 10, 0, yOffset), 16, 100, Settings.Speed.Value, function(value)
+    Settings.Speed.Value = value
+end)
+yOffset = yOffset + 50
+
+CreateToggle(MiscFrame, "Noclip", UDim2.new(0, 10, 0, yOffset), function(state)
+    Settings.Noclip.Enabled = state
+end)
+yOffset = yOffset + 30
+
+CreateToggle(MiscFrame, "Tool (Give All Tools)", UDim2.new(0, 10, 0, yOffset), function(state)
+    Settings.Tool = state
+    if state then
+        for _, tool in ipairs(game:GetService("ReplicatedStorage"):GetChildren()) do
+            if tool:IsA("Tool") then
+                tool:Clone().Parent = LocalPlayer.Backpack
+            end
+        end
+    end
+end)
+yOffset = yOffset + 30
+
+-- Populando aba Settings
+yOffset = 10
+CreateLabel(SettingsFrame, "Configurações do Menu", UDim2.new(0, 10, 0, yOffset))
+yOffset = yOffset + 30
+
+local function CreateColorPicker(parent, text, position, defaultColor, callback)
+    local colorFrame = Instance.new("Frame")
+    colorFrame.Size = UDim2.new(0.9, 0, 0, 30)
+    colorFrame.Position = position
+    colorFrame.BackgroundTransparency = 1
+    colorFrame.Parent = parent
+    
+    local label = CreateLabel(colorFrame, text, UDim2.new(0, 0, 0, 0))
+    
+    local colorButton = Instance.new("TextButton")
+    colorButton.Size = UDim2.new(0, 40, 0, 20)
+    colorButton.Position = UDim2.new(1, -40, 0, 5)
+    colorButton.BackgroundColor3 = defaultColor
+    colorButton.BorderSizePixel = 1
+    colorButton.BorderColor3 = Settings.MainColor
+    colorButton.Text = ""
+    colorButton.Parent = colorFrame
+    
+    colorButton.MouseButton1Click:Connect(function()
+        callback(defaultColor)
+    end)
+    
+    return colorFrame
+end
+
+CreateColorPicker(SettingsFrame, "Cor Principal", UDim2.new(0, 10, 0, yOffset), Settings.MainColor, function(color)
+    Settings.MainColor = color
+    Title.TextColor3 = color
+    -- Atualizar todas as cores...
+end)
+yOffset = yOffset + 40
+
+CreateColorPicker(SettingsFrame, "Cor de Fundo", UDim2.new(0, 10, 0, yOffset), Settings.BackgroundColor, function(color)
+    Settings.BackgroundColor = color
+    MainFrame.BackgroundColor3 = color
+end)
+yOffset = yOffset + 40
+
+CreateToggle(SettingsFrame, "Arrastar Menu", UDim2.new(0, 10, 0, yOffset), function(state)
+    Toggled = state
+end)
+yOffset = yOffset + 30
+
+-- Sistema de tabs
+local CurrentTab = AimbotFrame
+AimbotFrame.Visible = true
+
+local function SwitchTab(tabFrame, tabButton)
+    CurrentTab.Visible = false
+    CurrentTab = tabFrame
+    CurrentTab.Visible = true
+    
+    -- Resetar cores dos botões
+    for _, button in ipairs(TitleBar:GetChildren()) do
+        if button:IsA("TextButton") and button.Name ~= "CloseButton" and button.Name ~= "MinimizeButton" then
+            button.BackgroundTransparency = 0.3
+        end
+    end
+    
+    tabButton.BackgroundTransparency = 0.1
+end
+
+AimbotTab.MouseButton1Click:Connect(function() SwitchTab(AimbotFrame, AimbotTab) end)
+ESPTab.MouseButton1Click:Connect(function() SwitchTab(ESPFrame, ESPTab) end)
+MiscTab.MouseButton1Click:Connect(function() SwitchTab(MiscFrame, MiscTab) end)
+SettingsTab.MouseButton1Click:Connect(function() SwitchTab(SettingsFrame, SettingsTab) end)
+
+SwitchTab(AimbotFrame, AimbotTab)
+
+-- Sistema de arrastar
+TitleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        Dragging = true
+        DragStartPos = Vector2.new(input.Position.X, input.Position.Y)
+        MenuPos = Vector2.new(MainFrame.Position.X.Offset, MainFrame.Position.Y.Offset)
+    end
+end)
+
+TitleBar.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInput
